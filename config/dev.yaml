@@ -1,0 +1,56 @@
+# config/dev.yaml
+project_name: self-healing-infra
+environment: dev
+aws_region: eu-north-1
+
+endpoints:
+  - name: alb-health
+    url: http://${self-healing-infra-alb-dev-1018299559.eu-north-1.elb.amazonaws.com}/health
+    expected_status: 200
+    expected_body_contains: "healthy"
+    timeout_seconds: 10
+    enabled: true
+
+  - name: alb-root
+    url: http://${self-healing-infra-alb-dev-1018299559.eu-north-1.elb.amazonaws.com}/
+    expected_status: 200
+    timeout_seconds: 5
+    enabled: true
+
+asg_names:
+  - self-healing-infra-asg-dev
+
+target_group_arns: []
+
+rds_identifiers: []
+
+thresholds:
+  response_time_warn_ms: 2000
+  response_time_critical_ms: 5000
+  healthy_host_minimum: 2
+  consecutive_failures_before_heal: 2
+  heal_cooldown_minutes: 5
+  max_heals_per_hour: 10
+
+healing:
+  dry_run: false
+  restart_service_name: app
+  scale_up_increment: 1
+  max_restart_attempts: 2
+  enable_rds_failover: true
+  enable_instance_replacement: true
+  enable_scale_up: true
+
+alerting:
+  slack_webhook_ssm_path: /self-healing-infra/dev/slack-webhook-url
+  sns_topic_arn: ${SNS_TOPIC_ARN}
+  alert_on_degraded: true
+  alert_on_unhealthy: true
+  send_resolve_alert: true
+
+logging:
+  level: INFO
+  s3_bucket: ${LOGS_BUCKET}
+  s3_prefix: logs/dev
+  cloudwatch_log_group: /self-healing-infra/dev/health-checker
+  json_format: true
