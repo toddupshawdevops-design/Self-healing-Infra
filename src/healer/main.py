@@ -12,8 +12,11 @@ What's new vs v2:
 """
 from __future__ import annotations
 
-import json, logging, os, time, uuid
-from dataclasses import asdict
+import json
+import logging
+import os
+import time
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -23,7 +26,6 @@ from botocore.exceptions import ClientError
 from src.models.domain import HealAction, HealReport, HealResult
 from src.circuit_breaker.breaker import get_circuit_breaker
 from src.logger.structured import setup_logging, request_context
-from src.metrics.publisher import get_publisher
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +69,8 @@ class _Restarter:
                 if r["Status"] in ("Success","Failed","TimedOut","Cancelled"):
                     return {"status": r["Status"],
                             "output": r.get("StandardOutputContent","") + r.get("StandardErrorContent","")}
-            except self._ssm.exceptions.InvocationDoesNotExist: pass
+            except self._ssm.exceptions.InvocationDoesNotExist:
+                pass
             time.sleep(3)
         return {"status": "Timeout", "output": ""}
 
@@ -157,7 +160,8 @@ class _Idempotency:
     def is_active(self, rid: str) -> bool:
         try:
             item = self._table.get_item(Key={"resource_id": rid}).get("Item")
-            if not item: return False
+            if not item:
+                return False
             return (time.time() - float(item.get("started_at", 0))) < self._cd
         except Exception as e:
             logger.warning(f"Idempotency check failed ({rid}): {e}")
@@ -172,13 +176,20 @@ class _Idempotency:
             logger.warning(f"Idempotency mark failed ({rid}): {e}")
 
     def clear(self, rid: str) -> None:
-        try: self._table.delete_item(Key={"resource_id": rid})
-        except Exception: pass
+        try:
+            self._table.delete_item(Key={"resource_id": rid})
+        except Exception:
+            pass
 
 class _NullIdempotency:
-    def is_active(self, rid): return False
-    def mark(self, rid, iid): pass
-    def clear(self, rid): pass
+    def is_active(self, rid):
+        return False
+
+    def mark(self, rid, iid):
+        pass
+
+    def clear(self, rid):
+        pass
 
 
 # ── Auto Healer ───────────────────────────────────────────────────
@@ -260,15 +271,18 @@ class AutoHealer:
             # Try restart first
             r = self._restart.restart(iid, dry_run=self.dry_run)
             if r.success:
-                self._cb.record_success(iid); self._idem.clear(iid); return r
+                self._cb.record_success(iid)
+                self._idem.clear(iid)
+                return r
             # Restart failed → replace
             logger.warning(f"Restart failed for {iid}, replacing instance")
             self._cb.record_failure(iid)
             r2 = self._replace.replace(iid, dry_run=self.dry_run)
-            if r2.success: self._idem.clear(iid)
+            if r2.success:
+                self._idem.clear(iid)
             return r2
         # No specific instance — scale up
-        if details.get("healthy",0) < details.get("min_size",1):
+        if details.get("healthy", 0) < details.get("min_size", 1):
             return self._scale.scale_up(asg_name, dry_run=self.dry_run)
         return HealResult(HealAction.NO_ACTION, True, asg_name,
             details={"note": "No unhealthy instances identified"})
@@ -285,8 +299,11 @@ class AutoHealer:
                         details={"reason": "circuit open"})
                 self._idem.mark(iid, incident_id)
                 r = self._replace.replace(iid, dry_run=self.dry_run)
-                if r.success: self._cb.record_success(iid); self._idem.clear(iid)
-                else: self._cb.record_failure(iid)
+                if r.success:
+                    self._cb.record_success(iid)
+                    self._idem.clear(iid)
+                else:
+                    self._cb.record_failure(iid)
                 return r
         for asg in asg_names:
             return self._scale.scale_up(asg, dry_run=self.dry_run)
@@ -299,12 +316,14 @@ class AutoHealer:
                 details={"reason": "cooldown active"})
         self._idem.mark(db_id, incident_id)
         r = self._rds.failover(db_id, dry_run=self.dry_run)
-        if r.success: self._idem.clear(db_id)
+        if r.success:
+            self._idem.clear(db_id)
         return r
 
     def _persist(self, report: HealReport, event: dict) -> None:
         bucket = os.environ.get("LOGS_BUCKET")
-        if not bucket: return
+        if not bucket:
+            return
         now = datetime.now(timezone.utc)
         key = (f"incidents/{report.environment}/{now.strftime('%Y/%m/%d')}/"
                f"{report.incident_id}.json")
@@ -345,8 +364,10 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     for record in event.get("Records", [event]):
         raw = record.get("Sns", {}).get("Message", "{}")
-        try: heal_event = json.loads(raw)
-        except json.JSONDecodeError: heal_event = record
+        try:
+            heal_event = json.loads(raw)
+        except json.JSONDecodeError:
+            heal_event = record
 
         if heal_event.get("source") != "health-checker":
             continue
@@ -370,7 +391,8 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
 def _notify(report: HealReport) -> None:
     topic = os.environ.get("SNS_TOPIC_ARN")
-    if not topic: return
+    if not topic:
+        return
     icon = "✅" if report.overall_success else "❌"
     actions = "\n".join(
         f"  • {a.action} → {a.target}: {'OK' if a.success else 'FAILED'}"

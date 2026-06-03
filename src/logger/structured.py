@@ -6,7 +6,12 @@ src/logger/structured.py — production structured logging
   - Gzip NDJSON shipping to S3 for long-term audit retention
 """
 from __future__ import annotations
-import gzip, json, logging, re, threading, uuid
+import gzip
+import json
+import logging
+import re
+import threading
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
@@ -20,7 +25,8 @@ _PII = [
 ]
 
 def _scrub(t: str) -> str:
-    for p, r in _PII: t = p.sub(r, t)
+    for p, r in _PII:
+        t = p.sub(r, t)
     return t
 
 def get_correlation_id() -> str:
@@ -30,16 +36,22 @@ def get_correlation_id() -> str:
 def request_context(correlation_id: str | None = None, **extra):
     _ctx.correlation_id = correlation_id or str(uuid.uuid4())
     _ctx.extra = extra
-    try: yield _ctx.correlation_id
-    finally: _ctx.correlation_id = "-"; _ctx.extra = {}
+    try:
+        yield _ctx.correlation_id
+    finally:
+        _ctx.correlation_id = "-"
+        _ctx.extra = {}
 
 class JSONFormatter(logging.Formatter):
     def __init__(self, service: str, environment: str):
-        super().__init__(); self.service = service; self.environment = environment
+        super().__init__()
+        self.service = service
+        self.environment = environment
 
     def format(self, record: logging.LogRecord) -> str:
         msg = record.getMessage()
-        if record.exc_info: msg += "\n" + self.formatException(record.exc_info)
+        if record.exc_info:
+            msg += "\n" + self.formatException(record.exc_info)
         entry: dict[str, Any] = {
             "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname, "logger": record.name, "msg": _scrub(msg),
@@ -52,21 +64,26 @@ class JSONFormatter(logging.Formatter):
                 "exc_info","exc_text","stack_info","lineno","funcName","created","msecs",
                 "relativeCreated","thread","threadName","processName","process","message","taskName"}
         for k, v in record.__dict__.items():
-            if k not in skip and not k.startswith("_"): entry[k] = v
+            if k not in skip and not k.startswith("_"):
+                entry[k] = v
         return json.dumps(entry, default=str)
 
 class _S3Shipper:
     def __init__(self, bucket: str, prefix: str, region: str):
-        self.bucket = bucket; self.prefix = prefix.rstrip("/")
+        self.bucket = bucket
+        self.prefix = prefix.rstrip("/")
         self._s3 = boto3.client("s3", region_name=region)
-        self._buf: list[str] = []; self._lock = threading.Lock()
+        self._buf: list[str] = []
+        self._lock = threading.Lock()
 
     def add(self, line: str) -> None:
-        with self._lock: self._buf.append(line)
+        with self._lock:
+            self._buf.append(line)
 
     def flush(self, service: str, environment: str) -> None:
         with self._lock:
-            if not self._buf: return
+            if not self._buf:
+                return
             lines, self._buf = self._buf[:], []
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
@@ -82,22 +99,31 @@ class _S3Shipper:
 
 class _S3Handler(logging.Handler):
     def __init__(self, shipper: _S3Shipper):
-        super().__init__(level=logging.WARNING); self._shipper = shipper
+        super().__init__(level=logging.WARNING)
+        self._shipper = shipper
+
     def emit(self, record):
-        try: self._shipper.add(self.format(record))
-        except Exception: self.handleError(record)
+        try:
+            self._shipper.add(self.format(record))
+        except Exception:
+            self.handleError(record)
 
 def setup_logging(service: str, environment: str, level: str = "INFO",
                   s3_bucket: str | None = None, s3_prefix: str = "logs",
                   region: str = "us-east-1") -> _S3Shipper | None:
-    root = logging.getLogger(); root.handlers.clear()
+    root = logging.getLogger()
+    root.handlers.clear()
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
     fmt = JSONFormatter(service=service, environment=environment)
-    h = logging.StreamHandler(); h.setFormatter(fmt); root.addHandler(h)
+    h = logging.StreamHandler()
+    h.setFormatter(fmt)
+    root.addHandler(h)
     shipper = None
     if s3_bucket:
         shipper = _S3Shipper(bucket=s3_bucket, prefix=s3_prefix, region=region)
-        sh = _S3Handler(shipper); sh.setFormatter(fmt); root.addHandler(sh)
-    for lib in ("urllib3","boto3","botocore","s3transfer","requests"):
+        sh = _S3Handler(shipper)
+        sh.setFormatter(fmt)
+        root.addHandler(sh)
+    for lib in ("urllib3", "boto3", "botocore", "s3transfer", "requests"):
         logging.getLogger(lib).setLevel(logging.WARNING)
     return shipper

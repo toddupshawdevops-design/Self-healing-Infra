@@ -7,6 +7,7 @@ Both health_checker and healer import from here — no duplication.
 from __future__ import annotations
 
 import uuid
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -263,7 +264,8 @@ class AppConfig(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str) -> "AppConfig":
-        import os, re
+        import os
+        import re
         import yaml
 
         with open(path) as f:
@@ -288,7 +290,6 @@ class AppConfig(BaseModel):
         if alb := os.environ.get("ALB_DNS_NAME"):
             endpoints.append(EndpointConfig(name="alb-health", url=f"http://{alb}/health"))
 
-        import os
         return cls.model_validate({
             "project_name": os.environ["PROJECT_NAME"],
             "environment":  os.environ["ENVIRONMENT"],

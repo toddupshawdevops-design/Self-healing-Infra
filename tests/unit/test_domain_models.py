@@ -7,13 +7,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from src.models.domain import (
-    AppConfig, EndpointConfig, ThresholdConfig, HealingConfig,
-    AlertingConfig, HealthStatus, HealAction, CircuitState,
-    CheckResult, HealResult, HealthReport, HealReport,
+    AppConfig, EndpointConfig, ThresholdConfig, HealthStatus, HealAction, CheckResult, HealResult, HealthReport, HealReport,
 )
 
 

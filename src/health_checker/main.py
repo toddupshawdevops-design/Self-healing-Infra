@@ -13,13 +13,18 @@ What's new vs v2:
 """
 from __future__ import annotations
 
-import json, logging, os, time, uuid
+import json
+import logging
+import os
+import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any
 
-import boto3, requests, urllib3
+import boto3
+import requests
+import urllib3
 from botocore.exceptions import ClientError
 
 from src.models.domain import (
@@ -64,9 +69,14 @@ class _FailureStore:
             pass
 
 class _NullFailureStore:
-    def get(self, n): return 0
-    def increment(self, n): return 1
-    def reset(self, n): pass
+    def get(self, n):
+        return 0
+
+    def increment(self, n):
+        return 1
+
+    def reset(self, n):
+        pass
 
 
 # ── HTTP Checker ──────────────────────────────────────────────────
@@ -98,8 +108,10 @@ class _HTTPChecker:
             ms = (time.perf_counter() - start) * 1000
             details = {"url": ep.url, "status_code": resp.status_code,
                        "response_time_ms": round(ms, 2), "attempt": attempt}
-            try: details["body"] = resp.json()
-            except Exception: details["body_snippet"] = resp.text[:300]
+            try:
+                details["body"] = resp.json()
+            except Exception:
+                details["body_snippet"] = resp.text[:300]
 
             if resp.status_code != ep.expected_status:
                 return CheckResult(ep.name, HealthStatus.UNHEALTHY, ms, details=details,
@@ -139,17 +151,20 @@ class _AWSChecker:
 
     @property
     def asg(self):
-        if not self._asg: self._asg = boto3.client("autoscaling", region_name=self._region)
+        if not self._asg:
+            self._asg = boto3.client("autoscaling", region_name=self._region)
         return self._asg
 
     @property
     def elbv2(self):
-        if not self._elbv2: self._elbv2 = boto3.client("elbv2", region_name=self._region)
+        if not self._elbv2:
+            self._elbv2 = boto3.client("elbv2", region_name=self._region)
         return self._elbv2
 
     @property
     def rds(self):
-        if not self._rds: self._rds = boto3.client("rds", region_name=self._region)
+        if not self._rds:
+            self._rds = boto3.client("rds", region_name=self._region)
         return self._rds
 
     def check_asg(self, name: str) -> CheckResult:
@@ -214,10 +229,12 @@ class _AWSChecker:
             s = db["DBInstanceStatus"]
             details = {"status": s, "engine": f"{db['Engine']} {db['EngineVersion']}",
                        "class": db["DBInstanceClass"], "multi_az": db["MultiAZ"]}
-            if s == "available": status, err = HealthStatus.HEALTHY, None
-            elif s in ("backing-up","maintenance","modifying","upgrading"):
+            if s == "available":
+                status, err = HealthStatus.HEALTHY, None
+            elif s in ("backing-up", "maintenance", "modifying", "upgrading"):
                 status, err = HealthStatus.DEGRADED, f"RDS in '{s}' state"
-            else: status, err = HealthStatus.UNHEALTHY, f"RDS unexpected state: '{s}'"
+            else:
+                status, err = HealthStatus.UNHEALTHY, f"RDS unexpected state: '{s}'"
             return CheckResult(f"rds/{db_id}", status, ms, details=details, error=err)
         except ClientError as e:
             return CheckResult(f"rds/{db_id}", HealthStatus.UNKNOWN,
@@ -392,7 +409,8 @@ def _trigger_healer(failing: list[dict], report: HealthReport, config: AppConfig
 # ── CLI ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import argparse, sys
+    import argparse
+    import sys
     parser = argparse.ArgumentParser(description="Self-Healing Infrastructure Health Checker v3")
     parser.add_argument("--config", required=True, help="Path to YAML config file")
     parser.add_argument("--once", action="store_true", help="Run once and exit")
@@ -406,7 +424,8 @@ if __name__ == "__main__":
     try:
         config = AppConfig.from_yaml(args.config)
     except Exception as e:
-        print(f"Config error: {e}"); sys.exit(1)
+        print(f"Config error: {e}")
+        sys.exit(1)
 
     if args.dry_run:
         config = config.model_copy(update={"healing": config.healing.model_copy(update={"dry_run": True})})
@@ -423,9 +442,14 @@ if __name__ == "__main__":
         for c in sorted(report.checks, key=lambda x: x.status.value):
             icon = icons[c.status]
             consec = f" (x{c.consecutive_failures})" if c.consecutive_failures > 0 else ""
-            sup = " [suppressed]" if c.consecutive_failures < config.thresholds.consecutive_failures_before_heal and not c.is_healthy else ""
+            sup = (
+                " [suppressed]"
+                if c.consecutive_failures < config.thresholds.consecutive_failures_before_heal and not c.is_healthy
+                else ""
+            )
             print(f"  {icon} {c.name:<44} {c.response_time_ms:>8.1f}ms  {c.status}{consec}{sup}")
-            if c.error: print(f"     └─ {c.error}")
+            if c.error:
+                print(f"     └─ {c.error}")
         print("=" * 64)
 
     if args.once:
@@ -433,7 +457,11 @@ if __name__ == "__main__":
     else:
         print(f"Watching every {args.interval}s — Ctrl+C to stop")
         while True:
-            try: run_once()
-            except KeyboardInterrupt: print("\nStopped."); break
-            except Exception as e: logger.error(f"Cycle error: {e}")
+            try:
+                run_once()
+            except KeyboardInterrupt:
+                print("\nStopped.")
+                break
+            except Exception as e:
+                logger.error(f"Cycle error: {e}")
             time.sleep(args.interval)

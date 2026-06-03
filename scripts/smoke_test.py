@@ -12,10 +12,8 @@ Usage:
 import argparse
 import json
 import sys
-import time
 
 import boto3
-import requests
 
 
 def check(label: str, fn, *args, **kwargs):

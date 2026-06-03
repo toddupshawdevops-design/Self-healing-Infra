@@ -7,13 +7,12 @@ Formats incidents beautifully so on-call engineers have full context.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any
 
 import boto3
+from botocore.exceptions import ClientError
 import requests
 
 logger = logging.getLogger(__name__)

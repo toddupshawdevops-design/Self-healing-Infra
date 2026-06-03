@@ -9,7 +9,6 @@ Metrics namespace: {project}/HealthChecker and {project}/Healer
 from __future__ import annotations
 
 import logging
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal

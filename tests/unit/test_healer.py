@@ -5,11 +5,11 @@ Tests for circuit breaker, idempotency, and healing actions.
 from __future__ import annotations
 
 import json
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 import pytest
-from unittest.mock import MagicMock, patch, call
 from moto import mock_aws
 from src.models.domain import HealAction, CircuitState
 
@@ -247,7 +247,6 @@ class TestAutoHealerRouting:
         assert report.duration_seconds >= 0
 
     def test_to_dict_json_serializable(self):
-        import json
         healer = self._make_healer(dry_run=True)
         event = {
             "source": "health-checker",

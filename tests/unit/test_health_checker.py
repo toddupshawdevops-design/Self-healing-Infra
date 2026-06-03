@@ -5,8 +5,8 @@ Uses 'responses' library to mock HTTP and 'moto' to mock AWS.
 """
 from __future__ import annotations
 
-import json
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 import pytest
@@ -14,7 +14,7 @@ import responses as resp_lib
 import requests
 
 from src.models.domain import (
-    AppConfig, EndpointConfig, HealthStatus, CheckResult,
+    AppConfig, EndpointConfig, HealthStatus,
 )
 
 
@@ -83,7 +83,6 @@ class TestHTTPChecker:
     @resp_lib.activate
     def test_slow_response_degraded(self):
         from src.health_checker.main import _HTTPChecker
-        import time
 
         def slow_response(request):
             # Simulate slow response by manipulating response time check
