@@ -108,12 +108,24 @@ class _HTTPChecker:
                 method=ep.method, url=ep.url, timeout=ep.timeout_seconds,
                 verify=ep.verify_ssl, headers=ep.headers)
             ms = (time.perf_counter() - start) * 1000
+            try:
+                text = resp.text
+            except Exception:
+                content = getattr(resp, "_content", None)
+                if isinstance(content, (bytes, bytearray)):
+                    text = content.decode(resp.encoding or "utf-8", errors="replace")
+                else:
+                    text = str(content) if content is not None else ""
+
             details = {"url": ep.url, "status_code": resp.status_code,
                        "response_time_ms": round(ms, 2), "attempt": attempt}
             try:
                 details["body"] = resp.json()
             except Exception:
-                details["body_snippet"] = resp.text[:300]
+                try:
+                    details["body"] = json.loads(text)
+                except Exception:
+                    details["body_snippet"] = text[:300]
 
             if resp.status_code != ep.expected_status:
                 return CheckResult(ep.name, HealthStatus.UNHEALTHY, ms, details=details,

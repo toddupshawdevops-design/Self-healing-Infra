@@ -86,11 +86,7 @@ class TestHTTPChecker:
 
         def slow_response(request):
             # Simulate slow response by manipulating response time check
-            from requests.models import Response
-            r = Response()
-            r.status_code = 200
-            r._content = b'{"status":"healthy"}'
-            return r
+            return (200, {"Content-Type": "application/json"}, '{"status":"healthy"}')
 
         resp_lib.add_callback(resp_lib.GET, "http://example.com/health", slow_response)
 
@@ -221,10 +217,10 @@ class TestHealthCheckerOrchestrator:
 class TestAWSChecker:
 
     def test_check_asg_not_found(self):
-        from moto import mock_autoscaling
+        from moto import mock_aws
         from src.health_checker.main import _AWSChecker
 
-        @mock_autoscaling
+        @mock_aws
         def _test():
             checker = _AWSChecker(region="us-east-1")
             result = checker.check_asg("nonexistent-asg")
@@ -234,10 +230,10 @@ class TestAWSChecker:
         _test()
 
     def test_check_rds_not_found(self):
-        from moto import mock_rds
+        from moto import mock_aws
         from src.health_checker.main import _AWSChecker
 
-        @mock_rds
+        @mock_aws
         def _test():
             checker = _AWSChecker(region="us-east-1")
             result = checker.check_rds("nonexistent-db")
