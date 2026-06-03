@@ -7,9 +7,30 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 from src.models.domain import CircuitState
+
+
+def _to_int(value: Any, default: int = 0) -> int:
+    if isinstance(value, int):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode()
+    return int(value)
+
+
+def _to_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, float):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode()
+    return float(value)
 
 logger = logging.getLogger(__name__)
 
@@ -74,11 +95,14 @@ class CircuitBreaker:
             item = self._table.get_item(Key={"resource_id": rid}).get("Item")
             if not item:
                 return CircuitStatus(rid, CircuitState.CLOSED, 0, None, None, None)
-            return CircuitStatus(rid, CircuitState(item.get("state","CLOSED")),
-                int(item.get("failure_count",0)),
-                float(item["opened_at"]) if item.get("opened_at") else None,
-                float(item["last_failure"]) if item.get("last_failure") else None,
-                float(item["last_success"]) if item.get("last_success") else None)
+            return CircuitStatus(
+                rid,
+                CircuitState(item.get("state", "CLOSED")),
+                _to_int(item.get("failure_count", 0)),
+                _to_float(item.get("opened_at")),
+                _to_float(item.get("last_failure")),
+                _to_float(item.get("last_success")),
+            )
         except ClientError as e:
             logger.error(f"DynamoDB read failed: {e}")
             return CircuitStatus(rid, CircuitState.CLOSED, 0, None, None, None)

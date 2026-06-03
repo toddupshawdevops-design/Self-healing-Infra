@@ -88,7 +88,8 @@ class _HTTPChecker:
 
     def check(self, ep: EndpointConfig, warn_ms: int, critical_ms: int,
               max_retries: int = 2) -> CheckResult:
-        last = None
+        assert max_retries >= 1
+        last: CheckResult | None = None
         for attempt in range(1, max_retries + 1):
             r = self._once(ep, attempt, warn_ms, critical_ms)
             if r.is_healthy:
@@ -96,6 +97,7 @@ class _HTTPChecker:
             last = r
             if attempt < max_retries:
                 time.sleep(2 ** (attempt - 1))
+        assert last is not None
         return last
 
     def _once(self, ep: EndpointConfig, attempt: int,

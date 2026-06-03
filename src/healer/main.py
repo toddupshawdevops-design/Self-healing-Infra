@@ -162,7 +162,8 @@ class _Idempotency:
             item = self._table.get_item(Key={"resource_id": rid}).get("Item")
             if not item:
                 return False
-            return (time.time() - float(item.get("started_at", 0))) < self._cd
+            started_at = item.get("started_at", 0)
+            return (time.time() - float(str(started_at))) < self._cd
         except Exception as e:
             logger.warning(f"Idempotency check failed ({rid}): {e}")
             return False  # Fail open
